@@ -7,8 +7,8 @@ const webpack = require('webpack');
 
 // @NOTE: These need to be updated per-project
 const WEB_DESC = 'A boilerplate base for Typescript and WASM projects'
-const WEB_TITLE = 'Boilerplate'
-const GITHUB_URL = 'https://github.com/themikelester/ts-boilerplate';
+const WEB_TITLE = 'WasmSketch'
+const GITHUB_URL = 'https://github.com/themikelester/WasmSketch';
 const GTAG_ID = 'Some Google Analytics ID';
 
 const COMMIT_HASH = gitRevision.commithash();

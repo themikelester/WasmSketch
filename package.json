@@ -1,5 +1,5 @@
 {
-  "name": "boilerplate",
+  "name": "wasm-sketch",
   "private": true,
   "license": "MIT",
   "devDependencies": {
@@ -19,8 +19,7 @@
     "webpack-dev-server": "^3.9.0",
     "webpack-merge": "^4.2.2"
   },
-  "dependencies": {
-  },
+  "dependencies": {},
   "scripts": {
     "start": "webpack-dev-server --config webpack.dev.js",
     "build": "webpack --config webpack.prod.js",
