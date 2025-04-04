@@ -6,6 +6,8 @@
 //----------------------------------------------------------------------------------------------------------------------
 export class WASI {
     private instance?: WebAssembly.Instance = undefined;
+    private memory: WebAssembly.Memory;
+    private dataView: DataView;
 
     private WASI_ERRNO_SUCCESS = 0;
     private WASI_ERRNO_BADF = 8;
@@ -97,6 +99,8 @@ export class WASI {
 
     initialize(instance: WebAssembly.Instance) {
         this.instance = instance;
+        this.memory = this.instance.exports.memory as WebAssembly.Memory;
+        this.dataView = new DataView(this.memory.buffer);
 
         if (instance.exports['_start']) {
             const start = instance.exports._start as CallableFunction;
@@ -111,14 +115,18 @@ export class WASI {
         return this.nameSpaces as WebAssembly.Imports;
     }
 
-    private getMemory(): WebAssembly.Memory {
-        if (this.instance) return this.instance.exports.memory as WebAssembly.Memory;
+    public getInstance(): WebAssembly.Instance {
+        if (this.instance) return this.instance;
         else throw new Error('Attempt to access instance before initialisation!');
     }
 
-    private getDataView(): DataView {
-        if (this.instance)
-            return new DataView((this.instance.exports.memory as WebAssembly.Memory).buffer);
+    public getMemory(): WebAssembly.Memory {
+        if (this.instance) return this.memory;
+        else throw new Error('Attempt to access instance before initialisation!');
+    }
+
+    public getDataView(): DataView {
+        if (this.instance) return this.dataView
         else throw new Error('Attempt to access instance before initialisation!');
     }
 
@@ -148,12 +156,11 @@ export class WASI {
         return this.WASI_ERRNO_SUCCESS;
     }
 
-    private clock_time_get(id: number, precision: number, timeOut: number): number {
+    public clock_time_get(id: number, precision: number, timeOut: number): number {
         if (id !== 0) return this.WASI_ERRNO_INVAL;
 
         const view = this.getDataView();
-
-        const now = new Date().getTime();
+        const now = Date.now();
 
         view.setUint32(timeOut, (now * 1000000.0) % 0x100000000, true);
         view.setUint32(timeOut + 4, (now * 1000000.0) / 0x100000000, true);
