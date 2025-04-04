@@ -194,6 +194,19 @@ function isModifier(key: string) {
     }
 }
 
+function translateMouseButton(button: number): TGCButton {
+    switch (button) {
+        case 0: return TGCButton.MouseLeft;
+        case 1: return TGCButton.MouseMiddle;
+        case 2: return TGCButton.MouseRight;
+
+        case 3:
+        case 4:
+        default:
+            return TGCButton.None;
+    }
+}
+
 function translateKeyboardCode(code: string): TGCButton {
     switch (code) {
         case "Backspace": return TGCButton.Backspace;
@@ -308,29 +321,69 @@ function translateKeyboardCode(code: string): TGCButton {
     }
 }
 
+function translateGamepadAxis(axis: number) {
+    switch (axis) {
+        case 0: return TGCButton.Gamepad_LeftStick
+    }
+}
+this.pushAxisEvent(InputType.kInputType_StickMovedX, TGCButton.Gamepad_LeftStick, gamepad.axes[i], 0.0);
+
 export class FInput {
     private wasi: WASI
     private inputCtxPtr: number;
     private eventCount: number = 0;
+    private toplevel: HTMLElement;
 
-    public toplevel: HTMLElement;
-
-    constructor(toplevel: HTMLElement) {
+    constructor() {
         document.body.tabIndex = -1;
     }
 
-    public init(wasi: WASI) {
+    public init(toplevel: HTMLElement, wasi: WASI) {
         this.wasi = wasi;
+        this.toplevel = toplevel;
         const getInputCtx = wasi.getInstance().exports.getInputCtx as CallableFunction;
         if (getInputCtx) {
             this.inputCtxPtr = getInputCtx();
 
+            window.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+            });
+
             // https://discussion.evernote.com/topic/114013-web-clipper-chrome-extension-steals-javascript-keyup-events/
             document.addEventListener('keydown', this.onKeyDown, { capture: true });
-            document.addEventListener('keyup', this.onKeyUp, { capture: true });
+            document.addEventListener('keyup', (e) => {
+                this.pushButtonEvent(InputType.kInputType_ButtonUp, e.charCode, translateKeyboardCode(e.code))
+            }, { capture: true });
+            this.toplevel.addEventListener('mousedown', (e) => {
+                this.pushButtonEvent(InputType.kInputType_ButtonDown, 0, translateMouseButton(e.button));
+            });
+            this.toplevel.addEventListener('mouseup', (e) => {
+                this.pushButtonEvent(InputType.kInputType_ButtonUp, 0, translateMouseButton(e.button));
+            });
+            this.toplevel.addEventListener('mousemove', (e) => {
+                this.pushMouseEvent(InputType.kInputType_MouseMoved, e.clientX, e.clientY);
+            });
+            this.toplevel.addEventListener('wheel', (e) => {
+                this.pushMouseEvent(InputType.kInputType_MouseScroll, e.deltaX, e.deltaY);
+            });
+            window.addEventListener("gamepadconnected", (e) => {
+                e.gamepad.index
+                this.pushButtonEvent(InputType.kInputType_GamepadConnected, 0, 0);
+            });
+            window.addEventListener("gamepaddisconnected", (e) => {
+                this.pushButtonEvent(InputType.kInputType_GamepadDisconnected, 0, 0);
+            });
+
         } else {
             console.warn('Failed to initialize Input system. The WASM module does not export getInputCtx()');
         }
+    }
+
+    public update() {
+        const gamepad = navigator.getGamepads()[0];
+        if (!gamepad) { return; }
+
+        // TODO: Gamepad input polling
     }
 
     private onKeyDown = (e: KeyboardEvent) => {
@@ -340,14 +393,10 @@ export class FInput {
             if (!this._hasFocus()) return;
         }
 
-        if( e.repeat ) { return; }
+        if (e.repeat) { return; }
 
         this.pushButtonEvent(InputType.kInputType_ButtonDown, e.charCode, translateKeyboardCode(e.code))
 
-    };
-
-    private onKeyUp = (e: KeyboardEvent) => {
-        this.pushButtonEvent(InputType.kInputType_ButtonUp, e.charCode, translateKeyboardCode(e.code))
     };
 
     private _hasFocus() {
@@ -367,6 +416,44 @@ export class FInput {
         view.setFloat32(writeBufPtr + 16, 0.0, true);   // force
         view.setUint32(writeBufPtr + 20, type, true);   // type
         view.setUint32(writeBufPtr + 24, utf8, true);   // utf8
+        view.setUint32(writeBufPtr + 32, button, true); // button
+
+        const eventCount = view.getUint32(this.inputCtxPtr + 12, true);
+        view.setUint32(this.inputCtxPtr + 12, eventCount + 1, true);
+    }
+
+    private pushMouseEvent(type: InputType, x: number, y: number) {
+        if (this.eventCount >= kMaxEventsPerFrame) { return; }
+
+        const view = this.wasi.getDataView();
+        const writeBufHead = view.getUint32(this.inputCtxPtr + 4, true);
+        const writeBufPtr = writeBufHead + this.eventCount * 40;
+
+        this.wasi.clock_time_get(0, 1, writeBufPtr);            // timestamp: In system time format
+        view.setFloat32(writeBufPtr + 8, x, true);              // x
+        view.setFloat32(writeBufPtr + 12, y, true);             // y
+        view.setFloat32(writeBufPtr + 16, 0.0, true);           // force
+        view.setUint32(writeBufPtr + 20, type, true);           // type
+        view.setUint32(writeBufPtr + 24, 0, true);              // utf8
+        view.setUint32(writeBufPtr + 32, TGCButton.None, true); // button
+
+        const eventCount = view.getUint32(this.inputCtxPtr + 12, true);
+        view.setUint32(this.inputCtxPtr + 12, eventCount + 1, true);
+    }
+
+    private pushAxisEvent(type: InputType, button: TGCButton, x: number, y: number) {
+        if (this.eventCount >= kMaxEventsPerFrame) { return; }
+
+        const view = this.wasi.getDataView();
+        const writeBufHead = view.getUint32(this.inputCtxPtr + 4, true);
+        const writeBufPtr = writeBufHead + this.eventCount * 40;
+
+        this.wasi.clock_time_get(0, 1, writeBufPtr);    // timestamp: In system time format
+        view.setFloat32(writeBufPtr + 8, x, true);      // x
+        view.setFloat32(writeBufPtr + 12, y, true);     // y
+        view.setFloat32(writeBufPtr + 16, 0.0, true);   // force
+        view.setUint32(writeBufPtr + 20, type, true);   // type
+        view.setUint32(writeBufPtr + 24, 0, true);      // utf8
         view.setUint32(writeBufPtr + 32, button, true); // button
 
         const eventCount = view.getUint32(this.inputCtxPtr + 12, true);

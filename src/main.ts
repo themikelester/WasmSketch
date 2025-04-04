@@ -10,6 +10,7 @@ class Main {
     
     private wasi = new WASI();
     private wasm: WebAssembly.WebAssemblyInstantiatedSource;
+    private input = new FInput();
     
     constructor() {
         this.init();
@@ -27,8 +28,7 @@ class Main {
         this.toplevel = document.createElement('div');
         document.body.appendChild(this.toplevel);
 
-        const input = new FInput(this.toplevel);
-        input.init(this.wasi);
+        this.input.init(this.toplevel, this.wasi);
 
         this.canvas = document.createElement('canvas');
 
@@ -59,6 +59,8 @@ class Main {
     private _updateLoop = (time: number) => {
         if (this.paused)
             return;
+        
+        this.input.update();
 
         const update = this.wasm.instance.exports.update as CallableFunction;
         update();
