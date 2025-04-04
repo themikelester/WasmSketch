@@ -1,4 +1,5 @@
 
+import { FInput } from './FInput';
 import { GITHUB_REVISION_URL, IS_DEVELOPMENT} from './version';
 import { WASI } from './WasmSystem';
 
@@ -25,6 +26,9 @@ class Main {
 
         this.toplevel = document.createElement('div');
         document.body.appendChild(this.toplevel);
+
+        const input = new FInput(this.toplevel);
+        input.init(this.wasi);
 
         this.canvas = document.createElement('canvas');
 
