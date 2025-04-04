@@ -1,17 +1,27 @@
 
 import { GITHUB_REVISION_URL, IS_DEVELOPMENT} from './version';
+import { WASI } from './WasmSystem';
 
 class Main {
     public toplevel: HTMLElement;
     public canvas: HTMLCanvasElement;
     public paused: boolean = false;
-
+    
+    private wasi = new WASI();
+    private wasm: WebAssembly.WebAssemblyInstantiatedSource;
+    
     constructor() {
         this.init();
     }
 
     public async init() {
         console.log(`Source for this build available at ${GITHUB_REVISION_URL}`);
+        
+        const wasmImports = {
+            ...this.wasi.imports,
+        }
+        this.wasm = await WebAssembly.instantiateStreaming(fetch("triangle.wasm"), wasmImports);
+        this.wasi.initialize(this.wasm.instance);
 
         this.toplevel = document.createElement('div');
         document.body.appendChild(this.toplevel);
@@ -45,6 +55,9 @@ class Main {
     private _updateLoop = (time: number) => {
         if (this.paused)
             return;
+
+        const update = this.wasm.instance.exports.update as CallableFunction;
+        update();
 
         window.requestAnimationFrame(this._updateLoop);
     };
