@@ -8,6 +8,7 @@ export class WASI {
     private instance?: WebAssembly.Instance = undefined;
     private memory: WebAssembly.Memory;
     private dataView: DataView;
+    private memorySize: number;
 
     private WASI_ERRNO_SUCCESS = 0;
     private WASI_ERRNO_BADF = 8;
@@ -100,6 +101,7 @@ export class WASI {
     initialize(instance: WebAssembly.Instance) {
         this.instance = instance;
         this.memory = this.instance.exports.memory as WebAssembly.Memory;
+        this.memorySize = this.memory.buffer.byteLength;
         this.dataView = new DataView(this.memory.buffer);
 
         if (instance.exports['_start']) {
@@ -126,8 +128,19 @@ export class WASI {
     }
 
     public getDataView(): DataView {
-        if (this.instance) return this.dataView
+        if (this.instance) {
+            this.handleGrowth();
+            return this.dataView
+        }
         else throw new Error('Attempt to access instance before initialisation!');
+    }
+
+    private handleGrowth() {
+        // TODO: Don't allow wasm to grow it's space. Allocate a Memory up front.
+        if( this.memory.buffer.byteLength > this.memorySize ) {
+            this.memorySize = this.memory.buffer.byteLength;
+            this.dataView = new DataView(this.memory.buffer);
+        }
     }
 
     private trace(name: string, origFunc: CallableFunction): CallableFunction {
