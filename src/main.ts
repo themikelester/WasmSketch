@@ -22,12 +22,14 @@ class Main {
         const wasmImports = {
             ...this.wasi.imports,
         }
-        this.wasm = await WebAssembly.instantiateStreaming(fetch("triangle.wasm"), wasmImports);
+        const url = new URL('http://localhost:8080/triangle.wasm' )
+        this.wasm = await WebAssembly.instantiateStreaming(fetch(url), wasmImports);
         this.wasi.initialize(this.wasm.instance);
 
         this.toplevel = document.createElement('div');
         document.body.appendChild(this.toplevel);
 
+        (this.wasm.instance.exports.init as CallableFunction)();
         this.input.init(this.toplevel, this.wasi);
 
         this.canvas = document.createElement('canvas');
