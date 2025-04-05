@@ -321,13 +321,6 @@ function translateKeyboardCode(code: string): TGCButton {
     }
 }
 
-function translateGamepadAxis(axis: number) {
-    switch (axis) {
-        case 0: return TGCButton.Gamepad_LeftStick
-    }
-}
-this.pushAxisEvent(InputType.kInputType_StickMovedX, TGCButton.Gamepad_LeftStick, gamepad.axes[i], 0.0);
-
 export class FInput {
     private wasi: WASI
     private inputCtxPtr: number;
