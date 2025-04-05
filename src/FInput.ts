@@ -358,7 +358,7 @@ export class FInput {
             });
             this.toplevel.addEventListener('wheel', (e) => {
                 this.pushMouseEvent(InputType.kInputType_MouseScroll, e.deltaX, e.deltaY);
-            });
+            }, { passive: true });
             window.addEventListener("gamepadconnected", (e) => {
                 e.gamepad.index
                 this.pushButtonEvent(InputType.kInputType_GamepadConnected, 0, 0);
